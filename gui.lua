@@ -81,6 +81,66 @@ function GUI:GetSplitNumber()
     return tonumber(self.countEdit:GetText()) or 0
 end
 
+function GUI:SetTradeInfoFromDatabase()
+
+    local data = {}
+    
+
+    local profit, avg, revenue, expense = calcavg(Database:GetCurrentLedger()["items"], self:GetSplitNumber(), nil, nil, {
+        rounddown = GUI.rouddownCheck:GetChecked(),
+    })
+
+    local string_avg = GetMoneyStringL(avg)
+    local trade_info = {}
+
+    for id, item in pairs(Database:GetCurrentLedger()["items"]) do
+        trade_info[item["beneficiary"]] = {
+            status = false,
+            name=item["beneficiary"],
+            loss_bonus = CreateFrame("CheckButton", nil, f, "UICheckButtonTemplate"),
+            avg = string_avg,
+            flasks = 0,
+            bonus = 0,
+            summary = string_avg
+        }
+    end
+
+
+
+    for id, item in pairs(trade_info) do
+        table.insert(data, 1, {
+            ["cols"] = {
+                {
+                    ["value"] = item["status"]
+                }, -- id
+                {
+                    ["value"] = item["name"]
+                }, -- id
+                {
+                    ["value"] = item["loss_bonus"]
+                }, -- id
+                {
+                    ["value"] = GetMoneyStringL(avg)
+                }, -- id
+                {
+                    ["value"] = item["flasks"]
+                }, -- id
+                {
+                    ["value"] = item["bonus"]
+                }, -- id
+                {
+                    ["value"] = item["summary"]
+                }, -- id
+                {
+                    ["value"] = item["get_trade"]
+                }, -- id
+            },
+        })
+    end
+
+    self.tradeLogFrame:SetData(data)
+end
+
 function GUI:UpdateLootTableFromDatabase()
 
     local data = {}
@@ -242,7 +302,7 @@ function GUI:Init()
     do
         local bf = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
         bf:SetWidth(290)
-        bf:SetHeight(310)
+        bf:SetHeight(400)
         bf:SetBackdrop({
             bgFile = "Interface\\FrameGeneral\\UI-Background-Marble",
             edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
@@ -450,6 +510,20 @@ function GUI:Init()
                 tooltip:SetOwner(UIParent, "ANCHOR_NONE")
             end)
 
+            do
+                local b = CreateFrame("Button", nil, bf, "GameMenuButtonTemplate")
+                b:SetWidth(50)
+                b:SetHeight(22)
+                b:SetPoint("TOPLEFT", 40, -160)
+                b:SetText("100")
+
+                b:SetScript("OnClick", function() 
+                    s:SetValue(100)
+                    bf.startprice = s
+                end)
+            end
+
+
             s:SetValue(100)
 
             bf.startprice = s
@@ -457,7 +531,7 @@ function GUI:Init()
 
         do
             local l = bf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-            l:SetPoint("TOPLEFT", bf, 20, -160)
+            l:SetPoint("TOPLEFT", bf, 20, -200)
             l:SetText(L["Bid mode"])
 
             local usegold
@@ -514,7 +588,7 @@ function GUI:Init()
 
             do
                 local b = CreateFrame("CheckButton", nil, bf, "UICheckButtonTemplate")
-                b:SetPoint("TOPLEFT", bf, 30 + l:GetStringWidth(), -150)
+                b:SetPoint("TOPLEFT", bf, 30 + l:GetStringWidth(), -190)
         
                 b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                 b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
@@ -542,7 +616,7 @@ function GUI:Init()
 
                     bf:SetWidth(math.max(bf:GetWidth(), l:GetStringWidth() + 220))
         
-                    s:SetPoint("TOPLEFT", bf, 40 + l:GetStringWidth(), -200)
+                    s:SetPoint("TOPLEFT", bf, 40 + l:GetStringWidth(), -240)
         
                     s:SetScript("OnValueChanged", function(self, value)
                         value = math.floor(value)
@@ -576,7 +650,7 @@ function GUI:Init()
 
             do
                 local b = CreateFrame("CheckButton", nil, bf, "UICheckButtonTemplate")
-                b:SetPoint("TOPLEFT", bf, 90 + l:GetStringWidth(), -150)
+                b:SetPoint("TOPLEFT", bf, 90 + l:GetStringWidth(), -190)
         
                 b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
                 b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
@@ -600,7 +674,7 @@ function GUI:Init()
                     l:SetPoint("RIGHT", s, "LEFT", -20, 1)
                     l:SetText(L["Bid increment"])
         
-                    s:SetPoint("TOPLEFT", bf, 40 + l:GetStringWidth(), -200)
+                    s:SetPoint("TOPLEFT", bf, 40 + l:GetStringWidth(), -240)
         
                     s:SetScript("OnValueChanged", function(self, value)
                         value = math.floor(value)
@@ -619,7 +693,7 @@ function GUI:Init()
 
         do
             local b = CreateFrame("CheckButton", nil, bf, "UICheckButtonTemplate")
-            b:SetPoint("TOPLEFT", bf, 15, -230)
+            b:SetPoint("TOPLEFT", bf, 15, -270)
     
             b.text = b:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             b.text:SetPoint("LEFT", b, "RIGHT", 0, 1)
@@ -969,6 +1043,96 @@ function GUI:Init()
         self.rouddownCheck = b
     end
     --
+
+    -- trade btn
+    do
+        local b = CreateFrame("Button", nil, f, "GameMenuButtonTemplate")
+        b:SetWidth(120)
+        b:SetHeight(25)
+        b:SetPoint("BOTTOMLEFT", 300, 65)
+        b:SetText(L["Trade"])
+        b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        b:SetScript("OnClick", function() 
+            local ft = CreateFrame("Frame", nil, f, BackdropTemplateMixin and "BackdropTemplate" or nil)
+            ft:SetWidth(720)
+            ft:SetHeight(600)
+            ft:SetBackdrop({
+                bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+                edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+                -- tile = true,
+                tileSize = 32,
+                edgeSize = 32,
+                insets = {left = 8, right = 8, top = 10, bottom = 10}
+            })
+
+            ft:SetBackdropColor(0, 0, 0)
+            ft:SetPoint("CENTER", f, 0, 0)
+            ft:SetToplevel(true)
+            ft:EnableMouse(true)
+            ft:SetMovable(true)
+            ft:SetFrameLevel(f:GetFrameLevel() + 10)
+            ft:RegisterForDrag("LeftButton")
+            ft:SetScript("OnDragStart", ft.StartMoving)
+            ft:SetScript("OnDragStop", ft.StopMovingOrSizing)
+            ft:SetScript("OnMouseDown", clearAllFocus)
+
+            do
+                local b = CreateFrame("Button", nil, ft, "UIPanelCloseButton")
+                b:SetPoint("TOPRIGHT", ft, 0, 0);
+            end
+
+            self.tradeLogFrame = ScrollingTable:CreateST({
+                {
+                    ["name"] = L["Status"],
+                    ["width"] = 50,
+                    ["align"] = "CENTER",
+                },
+                {
+                    ["name"] = L["Name"],
+                    ["width"] = 150,
+                    ["align"] = "CENTER",
+                },
+                {
+                    ["name"] = "-50%",
+                    ["width"] = 50,
+                },
+                {
+                    ["name"] = L["Share"],
+                    ["width"] = 100,
+                    ["align"] = "CENTER"
+                },
+                {
+                    ["name"] = L["Flasks"],
+                    ["width"] = 75,
+                    ["align"] = "CENTER",
+                },
+                {
+                    ["name"] = L["Bonus"],
+                    ["width"] = 75,
+                    ["align"] = "CENTER",
+                },
+                {
+                    ["name"] = L["Summary"],
+                    ["width"] = 100,
+                    ["align"] = "CENTER",
+                },
+                {
+                    ["name"] = "",
+                    ["width"] = 50,
+                    ["align"] = "CENTER",
+                }
+            }, 15, 30, nil, ft)
+    
+            self.tradeLogFrame.head:SetHeight(20)
+            self.tradeLogFrame.frame:SetPoint("TOPLEFT", ft, "TOPLEFT", 30, -50)
+
+            GUI:SetTradeInfoFromDatabase()
+
+        end)
+
+    end
+
+    -- trade btn
 
     -- sum
     do
